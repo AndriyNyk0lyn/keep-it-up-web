@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { AuthService, authQueryKeys } from "../services/auth";
 import type { SignInData, SignUpData } from "@/types/auth";
 import { AuthContext, type AuthContextValue } from "./auth-context";
+import { router } from "@/router";
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -63,6 +64,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return () => subscription.unsubscribe();
   }, [queryClient]);
+
+  useEffect(() => {
+    router.invalidate();
+  }, [session, user]);
 
   const loading = sessionLoading || userLoading;
   const isAuthenticated = !!session && !!user;

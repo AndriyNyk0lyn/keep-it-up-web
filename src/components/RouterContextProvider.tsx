@@ -4,14 +4,6 @@ import { queryClient, router } from "@/router";
 
 export function RouterContextProvider() {
   const auth = useAuth();
-  
-  return (
-    <RouterProvider 
-      router={router} 
-      context={{ 
-        queryClient,
-        auth 
-      }}
-    />
-  );
-} 
+
+  return <RouterProvider router={router} context={{ queryClient, auth }} />;
+}
