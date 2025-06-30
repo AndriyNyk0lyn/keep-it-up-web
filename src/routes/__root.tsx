@@ -1,11 +1,11 @@
 import {
   createRootRouteWithContext,
-  Link,
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { AuthContextValue } from '@/contexts/auth-context'
 import { QueryClient } from '@tanstack/react-query'
+import { Header } from '@/components/header'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -17,28 +17,13 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 });
 
 function RootComponent() {
-  const { auth } = Route.useRouteContext();
-  const { isAuthenticated, signOut } = auth;
-
   return (
-    <>
-      <div className="flex gap-2 items-center">
-        {isAuthenticated ? (
-          <>
-            <Link to="/" className="[&.active]:font-bold">
-              Dashboard
-            </Link>
-            <button
-              onClick={signOut}
-              className="ml-auto px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              Sign Out
-            </button>
-          </>
-        ) : null}
-      </div>
-      <Outlet />
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <Header />
+      <main className="flex-1">
+        <Outlet />
+      </main>
       <TanStackRouterDevtools />
-    </>
+    </div>
   );
 }
