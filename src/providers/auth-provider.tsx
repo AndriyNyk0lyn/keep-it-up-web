@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { AuthService, authQueryKeys } from "../services/auth";
 import type { SignInData, SignUpData } from "@/types/auth";
-import { AuthContext, type AuthContextValue } from "./auth-context";
+import { AuthContext, type AuthContextValue } from "../contexts/auth-context";
 import { router } from "@/router";
 
 interface AuthProviderProps {
