@@ -7,7 +7,7 @@ export class KeepItUpDB extends Dexie {
   constructor() {
     super('KeepItUpDB');
     this.version(1).stores({
-      habits: 'id, name, goal, icon, streak, isDone, updatedAt'
+      habits: 'id, userId, name, goal, icon, streak, isDone, updatedAt'
     });
   }
 }

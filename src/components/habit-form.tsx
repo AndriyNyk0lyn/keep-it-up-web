@@ -15,6 +15,8 @@ import { ArrowLeft } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useManageHabits } from "@/hooks/useManageHabits";
+import { useEffect } from "react";
 
 const habitFormSchema = z.object({
   name: z
@@ -34,6 +36,23 @@ type Props = {
 };
 const HabitForm = ({ id }: Props) => {
   const navigate = useNavigate();
+  const {
+    createHabit,
+    updateHabit,
+    useGetHabit,
+    isCreatingHabit,
+    isUpdatingHabit,
+    createHabitError,
+    updateHabitError,
+    deleteHabit,
+    deleteHabitError,
+  } = useManageHabits();
+
+  const {
+    data: existingHabit,
+    isLoading: isLoadingHabit,
+    error: habitError,
+  } = useGetHabit(id || "");
 
   const form = useForm<HabitFormData>({
     resolver: zodResolver(habitFormSchema),
@@ -44,20 +63,77 @@ const HabitForm = ({ id }: Props) => {
     },
   });
 
+  useEffect(() => {
+    if (existingHabit && id) {
+      form.reset({
+        name: existingHabit.name,
+        goal: existingHabit.goal,
+        icon: existingHabit.icon,
+      });
+    }
+  }, [existingHabit, id, form]);
+
   const iconNames = Object.keys(icons) as IconName[];
   const selectedIcon = form.watch("icon") as IconName | "";
 
-  const onSubmit = (data: HabitFormData) => {
-    console.log(data);
-    // Handle form submission here
+  const requestCallback = {
+    onSuccess: () => {
+      navigate({ to: "/" });
+    },
+  };
 
-    // Navigate back to dashboard after successful submission
-    navigate({ to: "/" });
+  const onSubmit = (data: HabitFormData) => {
+    if (id && existingHabit) {
+      updateHabit(
+        {
+          habitId: id,
+          updates: {
+            name: data.name,
+            goal: data.goal,
+            icon: data.icon as IconName,
+          },
+        },
+        requestCallback
+      );
+    } else {
+      createHabit(
+        {
+          name: data.name,
+          goal: data.goal,
+          icon: data.icon as IconName,
+          streak: 0,
+          isDone: false,
+        },
+        requestCallback
+      );
+    }
   };
 
   const handleGoBack = () => {
     navigate({ to: "/" });
   };
+
+  if (habitError) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-lg text-muted-foreground">
+          Error fetching habit: {habitError.message}
+        </div>
+      </div>
+    );
+  }
+
+  if (id && isLoadingHabit) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-lg text-muted-foreground">Loading habit...</div>
+      </div>
+    );
+  }
+
+  const isSubmitting = isCreatingHabit || isUpdatingHabit;
+  const submitError = createHabitError || updateHabitError || deleteHabitError;
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-2xl">
@@ -160,13 +236,33 @@ const HabitForm = ({ id }: Props) => {
               )}
             />
 
+            {submitError && (
+              <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10">
+                <p className="text-sm text-destructive">
+                  Error {id ? "updating" : "creating"} habit:{" "}
+                  {submitError.message}
+                </p>
+              </div>
+            )}
+
             <Button
               type="submit"
-              className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
-              disabled={!form.formState.isValid}
+              className="w-full h-14 text-base "
+              disabled={!form.formState.isValid || isSubmitting}
             >
-              {id ? "Update Habit" : "Save Habit"}
+              {isSubmitting ? "Waiting..." : id ? "Update Habit" : "Save Habit"}
             </Button>
+
+            {id && (
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full h-14 text-base "
+                onClick={() => deleteHabit(id, requestCallback)}
+              >
+                Delete Habit
+              </Button>
+            )}
           </form>
         </Form>
       </div>

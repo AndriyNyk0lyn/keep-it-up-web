@@ -7,6 +7,8 @@ import { getIconComponent } from "@/assets/icons";
 interface HabitCardProps
   extends Omit<Habit, "id" | "userId" | "createdAt" | "updatedAt"> {
   onToggle: () => void;
+  disabled?: boolean;
+  onCardClick?: () => void;
 }
 
 const HabitCard = ({
@@ -16,10 +18,12 @@ const HabitCard = ({
   isDone,
   onToggle,
   icon,
+  disabled = false,
+  onCardClick,
 }: HabitCardProps) => {
   const Icon = getIconComponent(icon);
   return (
-    <Card className="bg-card hover:bg-card/80 transition-colors">
+    <Card className="bg-card hover:bg-card/80 transition-colors" onClick={onCardClick}>
       <CardContent>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -42,7 +46,11 @@ const HabitCard = ({
             <Button
               variant={isDone ? "default" : "secondary"}
               size="icon"
-              onClick={onToggle}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              disabled={disabled}
               className="h-12 w-12 rounded-full cursor-pointer"
             >
               <Check className="h-5 w-5" />
