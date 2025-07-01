@@ -3,7 +3,7 @@ import { HabitService } from "@/services/habit";
 import { HabitLogService } from "@/services/habit-log";
 import type { Habit, CreateHabit, UpdateHabit } from "@/types/habit";
 import { useAuth } from "./useAuth";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 const HABITS_QUERY_KEY = "habits" as const;
 
@@ -26,14 +26,6 @@ export const useManageHabits = () => {
     enabled: !!userId,
   });
 
-  const validatedUserId = useMemo(() => {
-    try {
-      return validateUser(userId);
-    } catch {
-      return null;
-    }
-  }, [userId]);
-
   const useGetHabit = (habitId: string) =>
     useQuery({
       queryKey: createQueryKey(validateUser(userId), habitId),
@@ -48,21 +40,18 @@ export const useManageHabits = () => {
       enabled: !!userId && !!habitId,
     });
 
-  const updateHabitsCache = useCallback(
-    (updater: (habits: Habit[]) => Habit[]) => {
-      if (!userId) return;
-      queryClient.setQueryData(createQueryKey(userId), updater);
-    },
-    [queryClient, userId]
-  );
-
-  const updateSingleHabitCache = useCallback(
+  const updateCaches = useCallback(
     (habitId: string, updater: (habit: Habit) => Habit) => {
       if (!userId) return;
+
       queryClient.setQueryData(
         createQueryKey(userId, habitId),
         (oldHabit: Habit | undefined) =>
           oldHabit ? updater(oldHabit) : oldHabit
+      );
+
+      queryClient.setQueryData(createQueryKey(userId), (habits: Habit[] = []) =>
+        habits.map((habit) => (habit.id === habitId ? updater(habit) : habit))
       );
     },
     [queryClient, userId]
@@ -72,35 +61,13 @@ export const useManageHabits = () => {
     mutationFn: (newHabit: CreateHabit) =>
       HabitService.createHabit(validateUser(userId), newHabit),
     onSuccess: (createdHabit) => {
-      updateHabitsCache((habits = []) => [...habits, createdHabit]);
-    },
-  });
-
-  const createToggleUpdate = useCallback(
-    (completed: boolean, streak?: number) => {
-      const now = new Date().toISOString();
-      return {
-        isDone: completed,
-        doneAt: completed ? now : undefined,
-        updatedAt: now,
-        ...(streak !== undefined && { streak }),
-      };
-    },
-    []
-  );
-
-  const updateHabitInBothCaches = useCallback(
-    (habitId: string, updater: (habit: Habit) => Habit) => {
-      if (!validatedUserId) return;
-
-      updateSingleHabitCache(habitId, updater);
-
-      updateHabitsCache((habits = []) =>
-        habits.map((habit) => (habit.id === habitId ? updater(habit) : habit))
+      if (!userId) return;
+      queryClient.setQueryData(
+        createQueryKey(userId),
+        (habits: Habit[] = []) => [...habits, createdHabit]
       );
     },
-    [validatedUserId, updateSingleHabitCache, updateHabitsCache]
-  );
+  });
 
   const updateHabitMutation = useMutation({
     mutationFn: async ({
@@ -117,16 +84,13 @@ export const useManageHabits = () => {
 
       if (!currentHabit) throw new Error("Habit not found");
 
-      const updatedHabit: Habit = { ...currentHabit, ...updates };
-      return HabitService.updateHabit(validUserId, updatedHabit);
+      return HabitService.updateHabit(validUserId, {
+        ...currentHabit,
+        ...updates,
+      });
     },
     onSuccess: (_, { habitId, updates }) => {
-      updateSingleHabitCache(habitId, (habit) => ({ ...habit, ...updates }));
-      updateHabitsCache((habits = []) =>
-        habits.map((habit) =>
-          habit.id === habitId ? { ...habit, ...updates } : habit
-        )
-      );
+      updateCaches(habitId, (habit) => ({ ...habit, ...updates }));
     },
   });
 
@@ -136,7 +100,7 @@ export const useManageHabits = () => {
     onSuccess: (_, habitId) => {
       if (!userId) return;
 
-      updateHabitsCache((habits = []) =>
+      queryClient.setQueryData(createQueryKey(userId), (habits: Habit[] = []) =>
         habits.filter((habit) => habit.id !== habitId)
       );
 
@@ -147,40 +111,56 @@ export const useManageHabits = () => {
   });
 
   const toggleHabitMutation = useMutation({
-    mutationFn: async (habitId: string) =>
-      HabitService.toggleHabitToday(validatedUserId!, habitId),
+    mutationFn: async (habitId: string) => {
+      const validUserId = validateUser(userId);
+      return HabitService.toggleHabitToday(validUserId, habitId);
+    },
 
     onMutate: async (habitId) => {
-      if (!validatedUserId) return;
+      const validUserId = validateUser(userId);
 
       await queryClient.cancelQueries({
-        queryKey: createQueryKey(validatedUserId),
+        queryKey: createQueryKey(validUserId),
       });
 
       const previousHabits = queryClient.getQueryData(
-        createQueryKey(validatedUserId)
+        createQueryKey(validUserId)
       );
+
       const isCompletedToday =
         await HabitLogService.isHabitCompletedToday(habitId);
       const willBeCompleted = !isCompletedToday;
+      const now = new Date().toISOString();
 
-      updateHabitsCache((habits = []) =>
-        habits.map((habit) =>
-          habit.id === habitId
-            ? { ...habit, ...createToggleUpdate(willBeCompleted) }
-            : habit
-        )
+      queryClient.setQueryData(
+        createQueryKey(validUserId),
+        (habits: Habit[] = []) =>
+          habits.map((habit) =>
+            habit.id === habitId
+              ? {
+                  ...habit,
+                  isDone: willBeCompleted,
+                  doneAt: willBeCompleted ? now : undefined,
+                  updatedAt: now,
+                }
+              : habit
+          )
       );
 
       return { previousHabits };
     },
 
     onSuccess: (result, habitId) => {
-      if (!validatedUserId) return;
-
-      const update = createToggleUpdate(result.completed, result.streak);
-      updateHabitInBothCaches(habitId, (habit) => ({ ...habit, ...update }));
+      const now = new Date().toISOString();
+      updateCaches(habitId, (habit) => ({
+        ...habit,
+        isDone: result.completed,
+        doneAt: result.completed ? now : undefined,
+        updatedAt: now,
+        streak: result.streak,
+      }));
     },
+
     onError: (error, _, context) => {
       if (context?.previousHabits && userId) {
         queryClient.setQueryData(
