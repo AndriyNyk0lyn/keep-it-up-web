@@ -115,7 +115,7 @@ const HabitForm = ({ id }: Props) => {
 
   if (habitError) {
     return (
-      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+      <div className="min-h-[50vh] bg-background p-6 flex items-center justify-center">
         <div className="text-lg text-muted-foreground">
           Error fetching habit: {habitError.message}
         </div>
@@ -125,7 +125,7 @@ const HabitForm = ({ id }: Props) => {
 
   if (id && isLoadingHabit) {
     return (
-      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+      <div className="min-h-[50vh] bg-background p-6 flex items-center justify-center">
         <div className="text-lg text-muted-foreground">Loading habit...</div>
       </div>
     );
@@ -135,7 +135,7 @@ const HabitForm = ({ id }: Props) => {
   const submitError = createHabitError || updateHabitError || deleteHabitError;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-[50vh] bg-background p-6">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8">
           <div className="flex items-center mb-4">
