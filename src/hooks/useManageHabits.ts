@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HabitService } from "@/services/habit";
+import { HabitLogService } from "@/services/habit-log";
 import type { Habit, CreateHabit, UpdateHabit } from "@/types/habit";
 import { useAuth } from "./useAuth";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 const HABITS_QUERY_KEY = "habits" as const;
 
@@ -25,15 +26,27 @@ export const useManageHabits = () => {
     enabled: !!userId,
   });
 
-  const useGetHabit = (habitId: string) => useQuery({
-    queryKey: createQueryKey(validateUser(userId), habitId),
-    queryFn: async () => {
-      const habit = await HabitService.getHabit(validateUser(userId), habitId);
-      if (!habit) throw new Error("Habit not found");
-      return habit;
-    },
-    enabled: !!userId && !!habitId,
-  });
+  const validatedUserId = useMemo(() => {
+    try {
+      return validateUser(userId);
+    } catch {
+      return null;
+    }
+  }, [userId]);
+
+  const useGetHabit = (habitId: string) =>
+    useQuery({
+      queryKey: createQueryKey(validateUser(userId), habitId),
+      queryFn: async () => {
+        const habit = await HabitService.getHabit(
+          validateUser(userId),
+          habitId
+        );
+        if (!habit) throw new Error("Habit not found");
+        return habit;
+      },
+      enabled: !!userId && !!habitId,
+    });
 
   const updateHabitsCache = useCallback(
     (updater: (habits: Habit[]) => Habit[]) => {
@@ -62,6 +75,32 @@ export const useManageHabits = () => {
       updateHabitsCache((habits = []) => [...habits, createdHabit]);
     },
   });
+
+  const createToggleUpdate = useCallback(
+    (completed: boolean, streak?: number) => {
+      const now = new Date().toISOString();
+      return {
+        isDone: completed,
+        doneAt: completed ? now : undefined,
+        updatedAt: now,
+        ...(streak !== undefined && { streak }),
+      };
+    },
+    []
+  );
+
+  const updateHabitInBothCaches = useCallback(
+    (habitId: string, updater: (habit: Habit) => Habit) => {
+      if (!validatedUserId) return;
+
+      updateSingleHabitCache(habitId, updater);
+
+      updateHabitsCache((habits = []) =>
+        habits.map((habit) => (habit.id === habitId ? updater(habit) : habit))
+      );
+    },
+    [validatedUserId, updateSingleHabitCache, updateHabitsCache]
+  );
 
   const updateHabitMutation = useMutation({
     mutationFn: async ({
@@ -108,56 +147,39 @@ export const useManageHabits = () => {
   });
 
   const toggleHabitMutation = useMutation({
-    mutationFn: async (habitId: string) => {
-      const validUserId = validateUser(userId);
-      const currentHabit = habitsQuery.data?.find((h) => h.id === habitId);
+    mutationFn: async (habitId: string) =>
+      HabitService.toggleHabitToday(validatedUserId!, habitId),
 
-      if (!currentHabit) throw new Error("Habit not found");
-
-      const now = new Date().toISOString();
-      const isDoneAfterToggle = !currentHabit.isDone;
-
-      const updates: UpdateHabit = {
-        isDone: isDoneAfterToggle,
-        streak: isDoneAfterToggle
-          ? currentHabit.streak + 1
-          : Math.max(0, currentHabit.streak - 1),
-        doneAt: isDoneAfterToggle ? now : undefined,
-        updatedAt: now,
-      };
-
-      const updatedHabit: Habit = { ...currentHabit, ...updates };
-      return HabitService.updateHabit(validUserId, updatedHabit);
-    },
     onMutate: async (habitId) => {
-      if (!userId) return;
+      if (!validatedUserId) return;
 
       await queryClient.cancelQueries({
-        queryKey: createQueryKey(userId),
+        queryKey: createQueryKey(validatedUserId),
       });
 
-      const previousHabits = queryClient.getQueryData(createQueryKey(userId));
+      const previousHabits = queryClient.getQueryData(
+        createQueryKey(validatedUserId)
+      );
+      const isCompletedToday =
+        await HabitLogService.isHabitCompletedToday(habitId);
+      const willBeCompleted = !isCompletedToday;
 
       updateHabitsCache((habits = []) =>
-        habits.map((habit) => {
-          if (habit.id !== habitId) return habit;
-
-          const now = new Date().toISOString();
-          const isDoneAfterToggle = !habit.isDone;
-
-          return {
-            ...habit,
-            isDone: isDoneAfterToggle,
-            streak: isDoneAfterToggle
-              ? habit.streak + 1
-              : Math.max(0, habit.streak - 1),
-            doneAt: isDoneAfterToggle ? now : undefined,
-            updatedAt: now,
-          };
-        })
+        habits.map((habit) =>
+          habit.id === habitId
+            ? { ...habit, ...createToggleUpdate(willBeCompleted) }
+            : habit
+        )
       );
 
       return { previousHabits };
+    },
+
+    onSuccess: (result, habitId) => {
+      if (!validatedUserId) return;
+
+      const update = createToggleUpdate(result.completed, result.streak);
+      updateHabitInBothCaches(habitId, (habit) => ({ ...habit, ...update }));
     },
     onError: (error, _, context) => {
       if (context?.previousHabits && userId) {
