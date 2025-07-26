@@ -11,7 +11,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -187,6 +187,9 @@ const HabitForm = ({ id }: Props) => {
                 <FormItem>
                   <FormLabel className="text-base font-medium text-foreground">
                     Goal
+                    <x-tooltip content="Describe the goal of the habit">
+                      <Info className="w-5 h-5 cursor-pointer" />
+                    </x-tooltip>
                   </FormLabel>
                   <FormControl>
                     <Input

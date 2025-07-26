@@ -6,6 +6,7 @@ import { AuthProvider } from "./providers/auth-provider";
 import { ThemeProvider } from "./providers/theme-provider";
 import { RouterContextProvider } from "./providers/router-provider";
 import { queryClient } from "./router";
+import "@/components/ui/custom-tooltip";
 import "./index.css";
 
 const rootElement = document.getElementById("root")!;
