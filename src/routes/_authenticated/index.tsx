@@ -12,7 +12,8 @@ export const Route = createFileRoute("/_authenticated/")({
 function Index() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { habits, isLoadingHabits, habitsError, toggleHabit, isTogglingHabit } = useManageHabits();
+  const { habits, isLoadingHabits, habitsError, toggleHabit, isTogglingHabit } =
+    useManageHabits();
 
   const handleAddNewHabit = () => {
     navigate({ to: "/add-habit" });

@@ -4,6 +4,7 @@ import { HabitLogService } from "@/services/habit-log";
 import type { Habit, CreateHabit, UpdateHabit } from "@/types/habit";
 import { useAuth } from "./useAuth";
 import { useCallback } from "react";
+import { toast } from "@/lib/toast";
 
 const HABITS_QUERY_KEY = "habits" as const;
 
@@ -66,6 +67,7 @@ export const useManageHabits = () => {
         createQueryKey(userId),
         (habits: Habit[] = []) => [...habits, createdHabit]
       );
+      toast.success("Habit created successfully");
     },
   });
 
@@ -91,6 +93,7 @@ export const useManageHabits = () => {
     },
     onSuccess: (_, { habitId, updates }) => {
       updateCaches(habitId, (habit) => ({ ...habit, ...updates }));
+      toast.success("Habit updated successfully");
     },
   });
 
@@ -107,6 +110,7 @@ export const useManageHabits = () => {
       queryClient.removeQueries({
         queryKey: createQueryKey(userId, habitId),
       });
+      toast.success("Habit deleted successfully");
     },
   });
 
@@ -159,6 +163,7 @@ export const useManageHabits = () => {
         updatedAt: now,
         streak: result.streak,
       }));
+      toast.success("Activity updated successfully");
     },
 
     onError: (error, _, context) => {
@@ -169,6 +174,7 @@ export const useManageHabits = () => {
         );
       }
       console.error("Error toggling habit:", error);
+      toast.error("Error toggling habit");
     },
   });
 
